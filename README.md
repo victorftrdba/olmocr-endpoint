@@ -1,5 +1,7 @@
 # OLMoCR Endpoint
 
+[![Runpod](https://api.runpod.io/badge/victorftrdba/olmocr-endpoint)](https://console.runpod.io/hub/victorftrdba/olmocr-endpoint)
+
 Um endpoint FastAPI para OCR (Optical Character Recognition) usando o modelo OLMoCR-7B da AllenAI, especializado em reconhecimento de texto em documentos PDF.
 
 ## 🚀 Funcionalidades

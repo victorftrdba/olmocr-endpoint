@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN pip install --upgrade pip
 
+# Install olmocr from AllenAI repository
+RUN pip install git+https://github.com/allenai/olmocr.git
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

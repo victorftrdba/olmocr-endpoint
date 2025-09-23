@@ -2,7 +2,7 @@ FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including poppler and fonts for PDF processing
 RUN apt-get update && apt-get install -y \
     git \
     python3-pip \
@@ -14,13 +14,20 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     libgcc-s1 \
+    poppler-utils \
+    ttf-mscorefonts-installer \
+    msttcorefonts \
+    fonts-crosextra-caladea \
+    fonts-crosextra-carlito \
+    gsfonts \
+    lcdf-typetools \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
 RUN pip install --upgrade pip
 
-# Install olmocr from AllenAI repository
-RUN pip install git+https://github.com/allenai/olmocr.git
+# Install olmocr with GPU support
+RUN pip install olmocr[gpu] --extra-index-url https://download.pytorch.org/whl/cu121
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

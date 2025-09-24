@@ -1,9 +1,17 @@
+# Base: imagem oficial do olmOCR (já contém Python 3.11, PyTorch com CUDA, olmOCR e dependências)
 FROM alleninstituteforai/olmocr:latest
 
 WORKDIR /app
-COPY main.py .
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt || true
 
+# --- Copiar handler e requisitos adicionais ---
+COPY handler.py .
+COPY requirements.txt .
+
+# --- Instalar libs extras necessárias para o handler ---
+RUN pip install --no-cache-dir -r requirements.txt
+
+# --- Porta padrão (opcional, Serverless não precisa expor manualmente) ---
 EXPOSE 8080
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+
+# --- Comando de inicialização do RunPod Serverless ---
+CMD ["python", "handler.py"]

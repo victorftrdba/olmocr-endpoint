@@ -2,7 +2,7 @@ FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 
 WORKDIR /app
 
-# Install system dependencies including poppler and fonts for PDF processing
+# --- Dependências do sistema ---
 RUN apt-get update && apt-get install -y \
     git \
     python3-pip \
@@ -15,23 +15,32 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     libgcc-s1 \
     poppler-utils \
-    ttf-mscorefonts-installer \
-    msttcorefonts \
-    fonts-crosextra-caladea \
-    fonts-crosextra-carlito \
+    fonts-dejavu \
     gsfonts \
-    lcdf-typetools \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
+# --- Atualizar pip ---
 RUN pip install --upgrade pip
 
-# Install olmocr with GPU support
-RUN pip install olmocr[gpu] --extra-index-url https://download.pytorch.org/whl/cu121
+# --- Instala PyTorch direto do repositório oficial (GPU compatível com CUDA 12.1) ---
+RUN pip install torch --extra-index-url https://download.pytorch.org/whl/cu121
 
+# --- Instala olmOCR e dependências ---
+RUN pip install olmocr \
+    transformers \
+    pillow \
+    fastapi \
+    uvicorn
+
+# --- Requisitos adicionais do projeto ---
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt || true
 
+# --- Copiar código ---
 COPY . .
 
-CMD ["python", "handler.py"]
+# --- Porta padrão para FastAPI ---
+EXPOSE 8080
+
+# --- Comando de inicialização ---
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

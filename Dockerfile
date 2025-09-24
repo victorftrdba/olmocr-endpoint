@@ -26,7 +26,7 @@ RUN pip install --upgrade pip
 RUN pip install torch --extra-index-url https://download.pytorch.org/whl/cu121
 
 # --- Instala olmOCR e dependências ---
-RUN pip install olmocr \
+RUN pip install git+https://github.com/allenai/olmocr.git \
     transformers \
     pillow \
     fastapi \

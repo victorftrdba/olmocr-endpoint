@@ -54,8 +54,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Instalar PyTorch compatível CUDA 12.2 ---
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122
 
-# --- Instalar olmOCR do GitHub ---
-RUN pip install git+https://github.com/allenai/olmocr.git
+# --- Baixar modelos RolmOCR durante o build para economizar espaço em runtime ---
+RUN python -c "
+from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+import torch
+print('Baixando modelo RolmOCR...')
+model = Qwen2VLForConditionalGeneration.from_pretrained('reducto/RolmOCR-7b', torch_dtype=torch.bfloat16)
+print('Baixando processor...')
+processor = AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct')
+print('Modelos RolmOCR baixados com sucesso!')
+"
 
 # --- Copiar handler.py ---
 COPY handler.py .

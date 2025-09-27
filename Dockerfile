@@ -3,6 +3,10 @@ FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04
 
 WORKDIR /app
 
+# --- Configurar timezone para evitar prompts interativos ---
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
 # --- Instalar Python 3.11 e dependências do sistema ---
 RUN apt-get update && apt-get install -y \
     software-properties-common \
@@ -30,6 +34,7 @@ RUN apt-get update && apt-get install -y \
     gsfonts \
     wget \
     curl \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Configurar Python 3.11 como padrão ---

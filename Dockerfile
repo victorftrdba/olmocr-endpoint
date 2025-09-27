@@ -1,14 +1,19 @@
-# Base: CUDA 12.2 + cuDNN 8 runtime
-FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
+# Base: Python 3.11 + CUDA 12.2 (melhor abordagem)
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04
 
 WORKDIR /app
 
-# --- Dependências do sistema necessárias para olmOCR e PDF ---
+# --- Instalar Python 3.11 e dependências do sistema ---
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
     git \
+    python3.11 \
+    python3.11-dev \
+    python3.11-venv \
+    python3.11-distutils \
     python3-pip \
-    python3-dev \
-    python3-venv \
     build-essential \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -26,6 +31,11 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# --- Configurar Python 3.11 como padrão ---
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # --- Atualizar pip e instalar dependências básicas ---
 RUN pip install --upgrade pip setuptools wheel

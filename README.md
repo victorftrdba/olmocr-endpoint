@@ -1,113 +1,212 @@
-# OLMoCR Endpoint
+# RolmOCR Endpoint
 
-[![Runpod](https://api.runpod.io/badge/victorftrdba/olmocr-endpoint)](https://console.runpod.io/hub/victorftrdba/olmocr-endpoint)
+[![Runpod](https://api.runpod.io/badge/victorftrdba/rolmocr-endpoint)](https://console.runpod.io/hub/victorftrdba/rolmocr-endpoint)
 
-Um endpoint FastAPI para OCR (Optical Character Recognition) usando o modelo OLMoCR-7B da AllenAI, especializado em reconhecimento de texto em documentos PDF.
+Um endpoint RunPod Serverless para OCR (Optical Character Recognition) usando o modelo RolmOCR-7B da Reducto AI, uma versão otimizada e mais rápida do olmOCR original.
 
 ## 🚀 Funcionalidades
 
-- **OCR de PDFs**: Extrai texto de documentos PDF usando IA
-- **Modelo Avançado**: Utiliza o modelo OLMoCR-7B-0225-preview da AllenAI
-- **API REST**: Interface simples via FastAPI
-- **Processamento de Imagens**: Converte PDFs em imagens para análise
-- **Ancoragem de Texto**: Usa texto de ancoragem para melhor precisão
+- **OCR de PDFs e Imagens**: Extrai texto de documentos PDF e imagens usando IA
+- **Modelo Otimizado**: Utiliza o modelo RolmOCR-7B (mais rápido e eficiente)
+- **Suporte a URLs**: Processa arquivos diretamente de URLs
+- **Múltiplas Páginas**: Processa PDFs com múltiplas páginas
+- **Formatos Suportados**: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF
+- **API Serverless**: Interface via RunPod.io
+- **Processamento Inteligente**: Converte PDFs em imagens para análise otimizada
 
 ## 📋 Pré-requisitos
 
-- Python 3.8+
-- CUDA (recomendado para melhor performance)
-- Docker (opcional)
+- Python 3.11+
+- CUDA 12.2+ (recomendado para melhor performance)
+- RunPod.io account
+- Docker (para build local)
 
-## 🛠️ Instalação
+## 🛠️ Deploy no RunPod.io
 
-### Instalação Local
+### Opção 1: Deploy via GitHub (Recomendado)
 
-1. Clone o repositório:
-```bash
-git clone <repository-url>
-cd olmocr-endpoint
-```
+1. Faça push do código para o GitHub
+2. No RunPod.io, crie um novo "Serverless Endpoint"
+3. Conecte com seu repositório GitHub
+4. Configure as variáveis de ambiente (opcional):
+   - `MAX_TOKENS=4096`
+   - `TEMPERATURE=0.2`
+   - `MAX_PAGES=10`
+   - `MAX_FILE_SIZE_MB=50`
 
-2. Instale as dependências:
-```bash
-pip install -r requirements.txt
-```
-
-3. Execute o servidor:
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8080
-```
-
-### Instalação com Docker
+### Opção 2: Deploy via Docker Hub
 
 1. Construa a imagem:
 ```bash
-docker build -t olmocr-endpoint .
+docker build -t seu-usuario/rolmocr-endpoint .
 ```
 
-2. Execute o container:
+2. Faça push para Docker Hub:
 ```bash
-docker run -p 8080:8080 --gpus all olmocr-endpoint
+docker push seu-usuario/rolmocr-endpoint
 ```
+
+3. No RunPod.io, use a imagem: `seu-usuario/rolmocr-endpoint:latest`
 
 ## 📖 Uso
 
-### Endpoint OCR
+### API Endpoint
 
-**POST** `/ocr`
+**POST** `https://seu-endpoint.runpod.net/v2/LOCAL/runsync`
 
-Envie um arquivo PDF para extrair o texto.
-
-**Parâmetros:**
-- `file`: Arquivo PDF (multipart/form-data)
+### Opção 1: Processar arquivo via URL (Recomendado)
 
 **Exemplo de requisição:**
-```bash
-curl -X POST "http://localhost:8080/ocr" \
-     -H "accept: application/json" \
-     -H "Content-Type: multipart/form-data" \
-     -F "file=@documento.pdf"
+```python
+import requests
+
+data = {
+    "input": {
+        "url": "https://example.com/document.pdf",
+        "max_pages": 10,
+        "temperature": 0.2,
+        "max_tokens": 4096
+    }
+}
+
+response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
+result = response.json()
 ```
 
-**Resposta:**
+### Opção 2: Processar arquivo via Base64
+
+**Exemplo de requisição:**
+```python
+import base64
+import requests
+
+# Converter arquivo para base64
+with open("document.pdf", "rb") as f:
+    file_data = base64.b64encode(f.read()).decode('utf-8')
+
+data = {
+    "input": {
+        "file": file_data,
+        "file_extension": "pdf"
+    }
+}
+
+response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
+result = response.json()
+```
+
+### Resposta da API
+
 ```json
 {
-  "extracted_text": "Texto extraído do documento PDF..."
+  "extracted_text": "Texto completo extraído do documento...",
+  "pages": [
+    {
+      "page": 1,
+      "text": "Texto da página 1..."
+    },
+    {
+      "page": 2,
+      "text": "Texto da página 2..."
+    }
+  ],
+  "total_pages": 2,
+  "status": "success"
 }
 ```
 
 ## 🔧 Configuração
 
 O modelo utiliza as seguintes configurações:
-- **Modelo**: `allenai/olmOCR-7B-0225-preview`
-- **Processor**: `Qwen/Qwen2-VL-7B-Instruct`
-- **Temperatura**: 0.8
-- **Max Tokens**: 512
-- **Resolução de Imagem**: 1024px (dimensão mais longa)
+- **Modelo**: `reducto/RolmOCR-7b`
+- **Processor**: `Qwen/Qwen2.5-VL-7B-Instruct`
+- **Temperatura**: 0.2 (padrão)
+- **Max Tokens**: 4096 (padrão)
+- **Max Páginas**: 10 (padrão)
+- **Tamanho Máximo**: 50MB (padrão)
+
+### Variáveis de Ambiente
+
+- `MAX_TOKENS`: Máximo de tokens na resposta (padrão: 4096)
+- `TEMPERATURE`: Criatividade da resposta 0.0-1.0 (padrão: 0.2)
+- `MAX_PAGES`: Máximo de páginas a processar (padrão: 10)
+- `MAX_FILE_SIZE_MB`: Tamanho máximo do arquivo em MB (padrão: 50)
 
 ## 📦 Dependências
 
 - `torch`: Framework de deep learning
 - `transformers`: Biblioteca de modelos de transformadores
 - `Pillow`: Processamento de imagens
-- `olmocr`: Biblioteca específica para OCR
-- `fastapi`: Framework web
-- `uvicorn`: Servidor ASGI
+- `requests`: Requisições HTTP
+- `PyMuPDF`: Processamento de PDFs
+- `runpod`: SDK do RunPod.io
 
 ## 🐳 Docker
 
 O projeto inclui um Dockerfile otimizado com:
 - Base CUDA 12.2 para suporte a GPU
-- Ubuntu 22.04
+- Ubuntu 22.04 com Python 3.11
 - Dependências do sistema necessárias
+- Download dos modelos durante o build
 - Configuração automática do servidor
 
 ## 📝 Notas
 
-- O modelo é carregado automaticamente na inicialização
+- O modelo RolmOCR é mais rápido e eficiente que o olmOCR original
 - Suporte a GPU quando disponível (CUDA)
 - Fallback para CPU quando GPU não está disponível
-- Processamento de primeira página do PDF por padrão
+- Processamento de múltiplas páginas de PDF
+- Suporte a URLs para download automático de arquivos
+- Compatibilidade com formato base64 para arquivos locais
+
+## 🚀 Vantagens do RolmOCR
+
+- **Mais Rápido**: Até 2x mais rápido que olmOCR original
+- **Menos Memória**: Usa menos VRAM durante o processamento
+- **Melhor Qualidade**: Mantém a mesma qualidade de OCR
+- **Sem Metadata**: Não precisa de metadata de PDF (mais simples)
+- **Robustez**: Treinado com dados rotacionados para melhor precisão
+
+## 📊 Formatos Suportados
+
+### Documentos
+- **PDF**: Múltiplas páginas (até 10 por padrão)
+
+### Imagens
+- **PNG**: Imagens PNG
+- **JPG/JPEG**: Imagens JPEG
+- **GIF**: Imagens GIF
+- **BMP**: Imagens BMP
+- **TIFF**: Imagens TIFF
+
+## 🔍 Exemplos de Uso
+
+### Processar PDF via URL
+```python
+import requests
+
+data = {
+    "input": {
+        "url": "https://example.com/relatorio.pdf",
+        "max_pages": 5
+    }
+}
+
+response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
+print(response.json()["extracted_text"])
+```
+
+### Processar Imagem via URL
+```python
+data = {
+    "input": {
+        "url": "https://example.com/nota_fiscal.jpg"
+    }
+}
+
+response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
+print(response.json()["extracted_text"])
+```
 
 ## 🤝 Contribuição
 
@@ -115,4 +214,4 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull r
 
 ## 📄 Licença
 
-Este projeto está sob a licença [especificar licença].
+Este projeto está sob a licença Apache 2.0.

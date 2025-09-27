@@ -14,7 +14,7 @@ import mimetypes
 # Initialize RolmOCR model and processor
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = Qwen2VLForConditionalGeneration.from_pretrained(
-    "reducto/RolmOCR-7b",
+    "reducto/RolmOCR",
     torch_dtype=torch.bfloat16
 ).eval().to(device)
 processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")

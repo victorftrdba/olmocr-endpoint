@@ -59,7 +59,7 @@ RUN python -c "\
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration; \
 import torch; \
 print('Baixando modelo RolmOCR...'); \
-model = Qwen2VLForConditionalGeneration.from_pretrained('reducto/RolmOCR-7b', torch_dtype=torch.bfloat16); \
+model = Qwen2VLForConditionalGeneration.from_pretrained('reducto/RolmOCR', torch_dtype=torch.bfloat16); \
 print('Baixando processor...'); \
 processor = AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct'); \
 print('Modelos RolmOCR baixados com sucesso!')"

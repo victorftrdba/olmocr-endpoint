@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     git \
     python3-pip \
     python3-dev \
+    python3-venv \
     build-essential \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -22,22 +23,31 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     fonts-dejavu \
     gsfonts \
+    wget \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Atualizar pip ---
-RUN pip install --upgrade pip
+# --- Atualizar pip e instalar dependências básicas ---
+RUN pip install --upgrade pip setuptools wheel
+
+# --- Copiar requirements.txt primeiro para cache de dependências ---
+COPY requirements.txt .
+
+# --- Instalar dependências Python ---
+RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Instalar PyTorch compatível CUDA 12.2 ---
-RUN pip install torch --index-url https://download.pytorch.org/whl/cu122
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122
 
-# --- Instalar olmOCR do GitHub + libs extras ---
-RUN pip install git+https://github.com/allenai/olmocr.git \
-    transformers \
-    Pillow \
-    runpod
+# --- Instalar olmOCR do GitHub ---
+RUN pip install git+https://github.com/allenai/olmocr.git
 
 # --- Copiar handler.py ---
 COPY handler.py .
+
+# --- Configurar variáveis de ambiente ---
+ENV PYTHONPATH=/app
+ENV CUDA_VISIBLE_DEVICES=0
 
 # --- Porta padrão (opcional, RunPod Serverless não exige) ---
 EXPOSE 8080

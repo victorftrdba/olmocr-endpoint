@@ -15,3 +15,7 @@ requests>=2.31.0
 accelerate>=0.20.0
 sentencepiece>=0.1.99
 protobuf>=3.20.0
+
+# Additional dependencies for stability
+numpy>=1.24.0
+opencv-python>=4.8.0

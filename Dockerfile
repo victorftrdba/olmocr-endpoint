@@ -54,8 +54,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Instalar PyTorch compatível CUDA 12.2 ---
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122
 
-# --- Copiar handler.py ---
-COPY handler.py .
+# --- Copiar todos os arquivos do projeto ---
+COPY . .
 
 # --- Configurar variáveis de ambiente ---
 ENV PYTHONPATH=/app

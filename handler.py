@@ -9,37 +9,15 @@ import runpod
 from models.rolmocr import model_manager
 from services.ocr_service import OCRService
 
-# Global variables for lazy initialization
-ocr_service = None
-model_loaded = False
 
+# Initialize OCR service
+try:
+    model_manager.load_model()
+except Exception as e:
+    raise e
 
-def initialize_service():
-    """
-    Initialize the OCR service and model with proper error handling.
-    
-    Returns:
-        bool: True if initialization successful, False otherwise
-    """
-    global ocr_service, model_loaded
-    
-    if model_loaded and ocr_service is not None:
-        return True
-    
-    try:
-        # Load model with timeout protection
-        model_manager.load_model()
-        
-        # Create OCR service instance
-        ocr_service = OCRService()
-        
-        model_loaded = True
-        return True
-        
-    except Exception as e:
-        model_loaded = False
-        ocr_service = None
-        return False
+# Create OCR service instance
+ocr_service = OCRService()
 
 
 def handler(job):
@@ -56,13 +34,6 @@ def handler(job):
         dict: Processing result with extracted text and metadata
     """
     try:
-        # Initialize service if not already done
-        if not initialize_service():
-            return {
-                "error": "Failed to initialize OCR service",
-                "status": "error"
-            }
-        
         # Get job input
         job_input = job.get("input", {})
         
@@ -78,10 +49,7 @@ def handler(job):
         
     except Exception as e:
         # Clean up memory on error
-        try:
-            model_manager.cleanup_memory()
-        except:
-            pass
+        model_manager.cleanup_memory()
         return {
             "error": str(e),
             "status": "error"

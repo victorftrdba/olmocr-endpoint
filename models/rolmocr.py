@@ -58,9 +58,8 @@ class RolmOCRManager:
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                 "reducto/RolmOCR",
                 torch_dtype=torch.bfloat16,
-                low_cpu_mem_usage=True,
-                device_map="auto"
-            ).eval()
+                low_cpu_mem_usage=True
+            ).eval().to(self.device)
             
             self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
             self.model_name = "RolmOCR"
@@ -80,9 +79,8 @@ class RolmOCRManager:
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                 "allenai/olmOCR-7B-0225-preview",
                 torch_dtype=torch.bfloat16,
-                low_cpu_mem_usage=True,
-                device_map="auto"
-            ).eval()
+                low_cpu_mem_usage=True
+            ).eval().to(self.device)
             
             self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
             self.model_name = "olmOCR (fallback)"

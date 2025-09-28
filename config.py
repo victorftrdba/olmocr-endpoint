@@ -18,15 +18,14 @@ class Config:
     
     # Model Configuration
     MODEL_NAME = "reducto/RolmOCR"
-    FALLBACK_MODEL = "allenai/olmOCR-7B-0225-preview"
-    PROCESSOR_NAME = "Qwen/Qwen2.5-VL-7B-Instruct"
-    FALLBACK_PROCESSOR = "Qwen/Qwen2-VL-7B-Instruct"
+    PROCESSOR_NAME = "reducto/RolmOCR"
     
     # Processing Parameters
     DEFAULT_TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
     DEFAULT_MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4096"))
     DEFAULT_MAX_PAGES = int(os.getenv("MAX_PAGES", "10"))
     DEFAULT_MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+    DEFAULT_PROCESSING_TIMEOUT = int(os.getenv("PROCESSING_TIMEOUT", "300"))  # 5 minutes
     
     # File Processing
     DOWNLOAD_TIMEOUT = 30
@@ -57,9 +56,7 @@ class Config:
         """
         return {
             'model_name': cls.MODEL_NAME,
-            'fallback_model': cls.FALLBACK_MODEL,
-            'processor_name': cls.PROCESSOR_NAME,
-            'fallback_processor': cls.FALLBACK_PROCESSOR
+            'processor_name': cls.PROCESSOR_NAME
         }
     
     @classmethod
@@ -75,7 +72,31 @@ class Config:
             'max_tokens': cls.DEFAULT_MAX_TOKENS,
             'max_pages': cls.DEFAULT_MAX_PAGES,
             'max_file_size_mb': cls.DEFAULT_MAX_FILE_SIZE_MB,
+            'processing_timeout': cls.DEFAULT_PROCESSING_TIMEOUT,
             'download_timeout': cls.DOWNLOAD_TIMEOUT,
             'chunk_size': cls.CHUNK_SIZE,
             'pdf_zoom_factor': cls.PDF_ZOOM_FACTOR
         }
+    
+    @classmethod
+    def validate_config(cls):
+        """
+        Validate configuration parameters.
+        
+        Raises:
+            ValueError: If any configuration parameter is invalid
+        """
+        if cls.DEFAULT_TEMPERATURE < 0.0 or cls.DEFAULT_TEMPERATURE > 1.0:
+            raise ValueError("DEFAULT_TEMPERATURE must be between 0.0 and 1.0")
+        
+        if cls.DEFAULT_MAX_TOKENS <= 0:
+            raise ValueError("DEFAULT_MAX_TOKENS must be positive")
+        
+        if cls.DEFAULT_MAX_PAGES <= 0:
+            raise ValueError("DEFAULT_MAX_PAGES must be positive")
+        
+        if cls.DEFAULT_MAX_FILE_SIZE_MB <= 0:
+            raise ValueError("DEFAULT_MAX_FILE_SIZE_MB must be positive")
+        
+        if cls.DEFAULT_PROCESSING_TIMEOUT <= 0:
+            raise ValueError("DEFAULT_PROCESSING_TIMEOUT must be positive")

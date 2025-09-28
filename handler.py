@@ -14,7 +14,8 @@ from services.ocr_service import OCRService
 try:
     model_manager.load_model()
 except Exception as e:
-    raise e
+    # Don't raise here - let the service handle it gracefully
+    pass
 
 # Create OCR service instance
 ocr_service = OCRService()
@@ -42,6 +43,16 @@ def handler(job):
                 "error": "No input provided",
                 "status": "error"
             }
+        
+        # Check if model is loaded
+        if not model_manager.model:
+            try:
+                model_manager.load_model()
+            except Exception as model_error:
+                return {
+                    "error": f"Model not available: {str(model_error)}",
+                    "status": "error"
+                }
         
         # Process the request using OCR service
         result = ocr_service.process_request(job_input)

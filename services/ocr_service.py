@@ -7,6 +7,7 @@ file processing, model operations, and result formatting.
 
 import os
 import base64
+import signal
 from io import BytesIO
 from PIL import Image
 
@@ -26,6 +27,7 @@ class OCRService:
         """Initialize the OCR service."""
         self.file_processor = FileProcessor()
         self.model_manager = model_manager
+        self.processing_timeout = int(os.getenv("PROCESSING_TIMEOUT", "300"))  # 5 minutes default
     
     def process_request(self, job_input):
         """
@@ -145,11 +147,12 @@ class OCRService:
         # Convert PDF to images
         images = self.file_processor.pdf_to_images(pdf_data)
         
-        # Process each page
+        # Process each page with timeout protection
         extracted_texts = []
         for i, image in enumerate(images):
             try:
-                text = self.model_manager.process_image(
+                # Apply timeout to image processing
+                text = self._process_image_with_timeout(
                     image, 
                     config['temperature'], 
                     config['max_tokens']
@@ -180,7 +183,7 @@ class OCRService:
         """
         try:
             image = Image.open(BytesIO(image_data))
-            text = self.model_manager.process_image(
+            text = self._process_image_with_timeout(
                 image, 
                 config['temperature'], 
                 config['max_tokens']
@@ -193,6 +196,36 @@ class OCRService:
             
         except Exception as e:
             raise Exception(f"Failed to process image: {str(e)}")
+    
+    def _process_image_with_timeout(self, image, temperature, max_tokens):
+        """
+        Process image with timeout protection.
+        
+        Args:
+            image (PIL.Image): Image to process
+            temperature (float): Sampling temperature
+            max_tokens (int): Maximum tokens to generate
+            
+        Returns:
+            str: Extracted text
+            
+        Raises:
+            Exception: If processing times out or fails
+        """
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Image processing timed out")
+        
+        # Set up timeout
+        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(self.processing_timeout)
+        
+        try:
+            result = self.model_manager.process_image(image, temperature, max_tokens)
+            return result
+        finally:
+            # Cancel timeout and restore old handler
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
     
     def _format_result(self, extracted_texts):
         """

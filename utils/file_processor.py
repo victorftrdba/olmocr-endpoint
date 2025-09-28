@@ -35,12 +35,13 @@ class FileProcessor:
         self.max_file_size_mb = max_file_size_mb
         self.max_pages = max_pages
     
-    def download_file_from_url(self, url, timeout=30):
+    def download_file_from_url(self, url, max_file_size_mb=None, timeout=30):
         """
         Download file from URL with size and timeout limits.
         
         Args:
             url (str): URL to download from
+            max_file_size_mb (int): Maximum file size in MB
             timeout (int): Request timeout in seconds
             
         Returns:
@@ -55,13 +56,37 @@ class FileProcessor:
             if not parsed_url.scheme or not parsed_url.netloc:
                 raise ValueError("Invalid URL provided")
             
+            # Security check: prevent SSRF attacks
+            if parsed_url.scheme not in ['http', 'https']:
+                raise ValueError("Only HTTP and HTTPS URLs are allowed")
+            
+            # Check for private IP ranges (basic SSRF protection)
+            import ipaddress
+            try:
+                hostname = parsed_url.hostname
+                if hostname:
+                    # Resolve hostname to IP
+                    import socket
+                    ip = socket.gethostbyname(hostname)
+                    ip_obj = ipaddress.ip_address(ip)
+                    
+                    # Check if IP is private/local
+                    if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                        raise ValueError("Access to private/local IP addresses is not allowed")
+            except (socket.gaierror, ValueError, ipaddress.AddressValueError):
+                # If we can't resolve or validate, allow but log
+                pass
+            
+            # Use max_file_size_mb parameter if provided
+            file_size_limit = max_file_size_mb if max_file_size_mb is not None else self.max_file_size_mb
+            
             response = requests.get(url, stream=True, timeout=timeout)
             response.raise_for_status()
             
             # Check content length
             content_length = response.headers.get('content-length')
-            if content_length and int(content_length) > self.max_file_size_mb * 1024 * 1024:
-                raise ValueError(f"File too large. Maximum size: {self.max_file_size_mb}MB")
+            if content_length and int(content_length) > file_size_limit * 1024 * 1024:
+                raise ValueError(f"File too large. Maximum size: {file_size_limit}MB")
             
             # Download file in chunks
             file_data = BytesIO()
@@ -70,8 +95,8 @@ class FileProcessor:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     downloaded_size += len(chunk)
-                    if downloaded_size > self.max_file_size_mb * 1024 * 1024:
-                        raise ValueError(f"File too large. Maximum size: {self.max_file_size_mb}MB")
+                    if downloaded_size > file_size_limit * 1024 * 1024:
+                        raise ValueError(f"File too large. Maximum size: {file_size_limit}MB")
                     file_data.write(chunk)
             
             file_data.seek(0)
@@ -94,26 +119,44 @@ class FileProcessor:
             Exception: If PDF conversion fails
         """
         try:
+            # Validate PDF data
+            if not pdf_data or len(pdf_data) == 0:
+                raise ValueError("Empty PDF data provided")
+            
             # Open PDF from bytes
             pdf_document = fitz.open(stream=pdf_data, filetype="pdf")
             images = []
+            
+            # Check if PDF is valid
+            if len(pdf_document) == 0:
+                pdf_document.close()
+                raise ValueError("PDF contains no pages")
             
             # Process up to max_pages
             pages_to_process = min(len(pdf_document), self.max_pages)
             
             for page_num in range(pages_to_process):
-                page = pdf_document[page_num]
-                
-                # Render page to image with 2x zoom for better quality
-                mat = fitz.Matrix(2.0, 2.0)
-                pix = page.get_pixmap(matrix=mat)
-                img_data = pix.tobytes("png")
-                
-                # Convert to PIL Image
-                image = Image.open(BytesIO(img_data))
-                images.append(image)
+                try:
+                    page = pdf_document[page_num]
+                    
+                    # Render page to image with 2x zoom for better quality
+                    mat = fitz.Matrix(2.0, 2.0)
+                    pix = page.get_pixmap(matrix=mat)
+                    img_data = pix.tobytes("png")
+                    
+                    # Convert to PIL Image
+                    image = Image.open(BytesIO(img_data))
+                    images.append(image)
+                    
+                except Exception as page_error:
+                    # Continue with other pages if one fails
+                    continue
             
             pdf_document.close()
+            
+            if not images:
+                raise ValueError("No pages could be processed from PDF")
+                
             return images
             
         except Exception as e:

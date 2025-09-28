@@ -2,7 +2,7 @@
 RolmOCR Model Management Module
 
 This module handles the initialization and management of the RolmOCR model
-and processor, including fallback mechanisms and memory optimization.
+and processor, including memory optimization and error handling.
 """
 
 import torch
@@ -14,9 +14,10 @@ class RolmOCRManager:
     Manages RolmOCR model initialization and operations.
     
     Features:
-    - Automatic model loading with fallback
+    - RolmOCR model loading
     - Memory optimization
     - Device detection (CUDA/CPU)
+    - Error handling and validation
     """
     
     def __init__(self):
@@ -28,28 +29,23 @@ class RolmOCRManager:
         
     def load_model(self):
         """
-        Load the RolmOCR model with automatic fallback.
+        Load the RolmOCR model.
         
         Returns:
             bool: True if model loaded successfully, False otherwise
             
         Raises:
-            Exception: If both RolmOCR and olmOCR fail to load
+            Exception: If RolmOCR fails to load
         """
-        # Try RolmOCR first
         if self._try_load_rolmocr():
             return True
             
-        # Fallback to olmOCR
-        if self._try_load_olmocr():
-            return True
-            
-        # If both fail, raise exception
-        raise Exception("Failed to load any OCR model")
+        # If RolmOCR fails, raise exception
+        raise Exception("Failed to load RolmOCR model")
     
     def _try_load_rolmocr(self):
         """
-        Try to load RolmOCR model.
+        Load RolmOCR model.
         
         Returns:
             bool: True if successful, False otherwise
@@ -61,32 +57,12 @@ class RolmOCRManager:
                 low_cpu_mem_usage=True
             ).eval().to(self.device)
             
-            self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+            # Use the correct processor for RolmOCR
+            self.processor = AutoProcessor.from_pretrained("reducto/RolmOCR")
             self.model_name = "RolmOCR"
             return True
             
-        except Exception:
-            return False
-    
-    def _try_load_olmocr(self):
-        """
-        Try to load olmOCR model as fallback.
-        
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            self.model = Qwen2VLForConditionalGeneration.from_pretrained(
-                "allenai/olmOCR-7B-0225-preview",
-                torch_dtype=torch.bfloat16,
-                low_cpu_mem_usage=True
-            ).eval().to(self.device)
-            
-            self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
-            self.model_name = "olmOCR (fallback)"
-            return True
-            
-        except Exception:
+        except Exception as e:
             return False
     
     def process_image(self, image, temperature=0.2, max_tokens=4096):
@@ -106,6 +82,17 @@ class RolmOCRManager:
         """
         if self.model is None or self.processor is None:
             raise Exception("Model not loaded. Call load_model() first.")
+        
+        # Validate input parameters
+        if temperature < 0.0 or temperature > 1.0:
+            raise ValueError("Temperature must be between 0.0 and 1.0")
+        
+        if max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
+        
+        # Validate image
+        if image is None:
+            raise ValueError("Image cannot be None")
         
         try:
             # Convert image to base64
@@ -127,7 +114,7 @@ class RolmOCRManager:
                         },
                         {
                             "type": "text",
-                            "text": "Return the plain text representation of this document as if you were reading it naturally.\n",
+                            "text": "Extraia o texto desta imagem de forma natural.",
                         },
                     ],
                 }

@@ -54,8 +54,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Instalar PyTorch compatível CUDA 12.2 ---
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122
 
-# --- Modelos serão baixados em runtime (mais confiável) ---
-
 # --- Copiar handler.py ---
 COPY handler.py .
 

@@ -1,10 +1,17 @@
+# Core dependencies
 runpod>=1.0.0
 transformers>=4.40.0
-Pillow>=10.0.0
 torch>=2.0.0
 torchvision>=0.15.0
+
+# Image and document processing
+Pillow>=10.0.0
+PyMuPDF>=1.23.0
+
+# HTTP and utilities
+requests>=2.31.0
+
+# Model dependencies
 accelerate>=0.20.0
 sentencepiece>=0.1.99
 protobuf>=3.20.0
-requests>=2.31.0
-PyMuPDF>=1.23.0

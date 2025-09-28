@@ -54,15 +54,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Instalar PyTorch compatível CUDA 12.2 ---
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122
 
-# --- Baixar modelos RolmOCR durante o build para economizar espaço em runtime ---
-RUN python -c "\
-from transformers import AutoProcessor, Qwen2VLForConditionalGeneration; \
-import torch; \
-print('Baixando modelo RolmOCR...'); \
-model = Qwen2VLForConditionalGeneration.from_pretrained('reducto/RolmOCR', torch_dtype=torch.bfloat16); \
-print('Baixando processor...'); \
-processor = AutoProcessor.from_pretrained('Qwen/Qwen2.5-VL-7B-Instruct'); \
-print('Modelos RolmOCR baixados com sucesso!')"
+# --- Modelos serão baixados em runtime (mais confiável) ---
 
 # --- Copiar handler.py ---
 COPY handler.py .

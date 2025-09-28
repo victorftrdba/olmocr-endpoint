@@ -11,13 +11,39 @@ import fitz  # PyMuPDF for PDF processing
 from urllib.parse import urlparse
 import mimetypes
 
-# Initialize RolmOCR model and processor
+# Initialize RolmOCR model and processor (lazy loading)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = Qwen2VLForConditionalGeneration.from_pretrained(
-    "reducto/RolmOCR",
-    torch_dtype=torch.bfloat16
-).eval().to(device)
-processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+model = None
+processor = None
+
+def initialize_model():
+    """Initialize model and processor on first use"""
+    global model, processor
+    
+    if model is None:
+        print("Inicializando modelo RolmOCR...")
+        try:
+            model = Qwen2VLForConditionalGeneration.from_pretrained(
+                "reducto/RolmOCR",
+                torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True
+            ).eval().to(device)
+            
+            processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-7B-Instruct")
+            print("Modelo RolmOCR inicializado com sucesso!")
+            
+        except Exception as e:
+            print(f"Erro ao inicializar modelo: {e}")
+            # Fallback para olmOCR se RolmOCR falhar
+            print("Tentando fallback para olmOCR...")
+            model = Qwen2VLForConditionalGeneration.from_pretrained(
+                "allenai/olmOCR-7B-0225-preview",
+                torch_dtype=torch.bfloat16,
+                low_cpu_mem_usage=True
+            ).eval().to(device)
+            
+            processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+            print("Modelo olmOCR (fallback) inicializado com sucesso!")
 
 def download_file_from_url(url, max_size_mb=50):
     """
@@ -139,6 +165,9 @@ def handler(job):
     RunPod serverless handler for OCR processing with RolmOCR
     """
     try:
+        # Initialize model if not already loaded
+        initialize_model()
+        
         # Get job input
         job_input = job["input"]
         

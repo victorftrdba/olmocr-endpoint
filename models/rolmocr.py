@@ -51,19 +51,46 @@ class RolmOCRManager:
             bool: True if successful, False otherwise
         """
         try:
+            # Try loading with bfloat16 first
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                 "reducto/RolmOCR",
                 torch_dtype=torch.bfloat16,
-                low_cpu_mem_usage=True
+                low_cpu_mem_usage=True,
+                trust_remote_code=True
             ).eval().to(self.device)
             
             # Use the correct processor for RolmOCR
-            self.processor = AutoProcessor.from_pretrained("reducto/RolmOCR")
+            self.processor = AutoProcessor.from_pretrained(
+                "reducto/RolmOCR",
+                trust_remote_code=True
+            )
             self.model_name = "RolmOCR"
             return True
             
         except Exception as e:
-            return False
+            print(f"Error loading RolmOCR with bfloat16: {str(e)}")
+            try:
+                # Fallback: try with float16
+                self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+                    "reducto/RolmOCR",
+                    torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
+                    trust_remote_code=True
+                ).eval().to(self.device)
+                
+                self.processor = AutoProcessor.from_pretrained(
+                    "reducto/RolmOCR",
+                    trust_remote_code=True
+                )
+                self.model_name = "RolmOCR"
+                return True
+                
+            except Exception as e2:
+                # Log the actual error for debugging
+                import traceback
+                print(f"Error loading RolmOCR with float16: {str(e2)}")
+                print(f"Full traceback: {traceback.format_exc()}")
+                return False
     
     def process_image(self, image, temperature=0.2, max_tokens=4096):
         """
@@ -95,32 +122,24 @@ class RolmOCRManager:
             raise ValueError("Image cannot be None")
         
         try:
-            # Convert image to base64
-            from io import BytesIO
-            import base64
-            
-            buffered = BytesIO()
-            image.save(buffered, format="PNG")
-            img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-            
-            # Prepare messages for OCR
+            # Prepare messages for OCR (using RolmOCR format)
             messages = [
                 {
                     "role": "user",
                     "content": [
                         {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{img_base64}"},
+                            "type": "image",
+                            "image": image,
                         },
                         {
                             "type": "text",
-                            "text": "Extraia o texto desta imagem de forma natural.",
+                            "text": "Return the plain text representation of this document as if you were reading it naturally.\n",
                         },
                     ],
                 }
             ]
             
-            # Process input
+            # Process input using the processor
             text_input = self.processor.apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True
             )

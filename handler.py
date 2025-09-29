@@ -9,15 +9,7 @@ import runpod
 from models.rolmocr import model_manager
 from services.ocr_service import OCRService
 
-
-# Initialize OCR service
-try:
-    model_manager.load_model()
-except Exception as e:
-    # Don't raise here - let the service handle it gracefully
-    pass
-
-# Create OCR service instance
+# Create OCR service instance (model will be loaded on first request)
 ocr_service = OCRService()
 
 

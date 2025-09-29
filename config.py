@@ -25,7 +25,7 @@ class Config:
     DEFAULT_MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4096"))
     DEFAULT_MAX_PAGES = int(os.getenv("MAX_PAGES", "10"))
     DEFAULT_MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
-    DEFAULT_PROCESSING_TIMEOUT = int(os.getenv("PROCESSING_TIMEOUT", "300"))  # 5 minutes
+    DEFAULT_PROCESSING_TIMEOUT = int(os.getenv("PROCESSING_TIMEOUT", "120"))  # 2 minutes
     
     # File Processing
     DOWNLOAD_TIMEOUT = 30

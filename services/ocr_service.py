@@ -7,7 +7,8 @@ file processing, model operations, and result formatting.
 
 import os
 import base64
-import signal
+import threading
+import time
 from io import BytesIO
 from PIL import Image
 
@@ -27,7 +28,7 @@ class OCRService:
         """Initialize the OCR service."""
         self.file_processor = FileProcessor()
         self.model_manager = model_manager
-        self.processing_timeout = int(os.getenv("PROCESSING_TIMEOUT", "300"))  # 5 minutes default
+        self.processing_timeout = int(os.getenv("PROCESSING_TIMEOUT", "120"))  # 2 minutes default
     
     def process_request(self, job_input):
         """
@@ -53,7 +54,8 @@ class OCRService:
             extracted_texts = self._process_file(file_data, file_extension, config)
             
             # Format and return result
-            return self._format_result(extracted_texts)
+            result = self._format_result(extracted_texts)
+            return result
             
         except Exception as e:
             # Clean up memory on error
@@ -199,7 +201,7 @@ class OCRService:
     
     def _process_image_with_timeout(self, image, temperature, max_tokens):
         """
-        Process image with timeout protection.
+        Process image with timeout protection using threading.
         
         Args:
             image (PIL.Image): Image to process
@@ -212,20 +214,34 @@ class OCRService:
         Raises:
             Exception: If processing times out or fails
         """
-        def timeout_handler(signum, frame):
-            raise TimeoutError("Image processing timed out")
+        result = [None]
+        exception = [None]
         
-        # Set up timeout
-        old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(self.processing_timeout)
+        def process_image():
+            try:
+                result[0] = self.model_manager.process_image(image, temperature, max_tokens)
+            except Exception as e:
+                exception[0] = e
         
-        try:
-            result = self.model_manager.process_image(image, temperature, max_tokens)
-            return result
-        finally:
-            # Cancel timeout and restore old handler
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+        # Start processing in a separate thread
+        thread = threading.Thread(target=process_image)
+        thread.daemon = True
+        thread.start()
+        
+        # Wait for completion or timeout
+        thread.join(timeout=self.processing_timeout)
+        
+        if thread.is_alive():
+            # Thread is still running, timeout occurred
+            raise TimeoutError(f"Image processing timed out after {self.processing_timeout} seconds")
+        
+        if exception[0]:
+            raise exception[0]
+        
+        if result[0] is None:
+            raise Exception("Image processing failed with no result")
+        
+        return result[0]
     
     def _format_result(self, extracted_texts):
         """

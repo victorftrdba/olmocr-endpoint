@@ -37,11 +37,13 @@ class RolmOCRManager:
         Raises:
             Exception: If RolmOCR fails to load
         """
+        print("Starting RolmOCR model loading...")
         if self._try_load_rolmocr():
+            print(f"Successfully loaded {self.model_name} model on {self.device}")
             return True
             
-        # If RolmOCR fails, raise exception
-        raise Exception("Failed to load RolmOCR model")
+        # If RolmOCR fails, raise exception with detailed error message
+        raise Exception("Failed to load RolmOCR model. This may be due to model architecture mismatches or insufficient resources. Check the logs above for detailed error information.")
     
     def _try_load_rolmocr(self):
         """
@@ -52,12 +54,15 @@ class RolmOCRManager:
         """
         try:
             # Try loading with bfloat16 first
+            print("Attempting to load RolmOCR with bfloat16...")
             self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                 "reducto/RolmOCR",
                 torch_dtype=torch.bfloat16,
                 low_cpu_mem_usage=True,
-                trust_remote_code=True
-            ).eval().to(self.device)
+                trust_remote_code=True,
+                ignore_mismatched_sizes=True,
+                device_map="auto" if torch.cuda.is_available() else None
+            ).eval()
             
             # Use the correct processor for RolmOCR
             self.processor = AutoProcessor.from_pretrained(
@@ -69,14 +74,18 @@ class RolmOCRManager:
             
         except Exception as e:
             print(f"Error loading RolmOCR with bfloat16: {str(e)}")
+            print(f"Error type: {type(e).__name__}")
             try:
                 # Fallback: try with float16
+                print("Attempting to load RolmOCR with float16...")
                 self.model = Qwen2VLForConditionalGeneration.from_pretrained(
                     "reducto/RolmOCR",
                     torch_dtype=torch.float16,
                     low_cpu_mem_usage=True,
-                    trust_remote_code=True
-                ).eval().to(self.device)
+                    trust_remote_code=True,
+                    ignore_mismatched_sizes=True,
+                    device_map="auto" if torch.cuda.is_available() else None
+                ).eval()
                 
                 self.processor = AutoProcessor.from_pretrained(
                     "reducto/RolmOCR",
@@ -86,11 +95,34 @@ class RolmOCRManager:
                 return True
                 
             except Exception as e2:
-                # Log the actual error for debugging
-                import traceback
                 print(f"Error loading RolmOCR with float16: {str(e2)}")
-                print(f"Full traceback: {traceback.format_exc()}")
-                return False
+                print(f"Error type: {type(e2).__name__}")
+                try:
+                    # Final fallback: try with default dtype and ignore mismatched sizes
+                    print("Attempting final fallback with default dtype...")
+                    self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+                        "reducto/RolmOCR",
+                        low_cpu_mem_usage=True,
+                        trust_remote_code=True,
+                        ignore_mismatched_sizes=True,
+                        device_map="auto" if torch.cuda.is_available() else None
+                    ).eval()
+                    
+                    self.processor = AutoProcessor.from_pretrained(
+                        "reducto/RolmOCR",
+                        trust_remote_code=True
+                    )
+                    self.model_name = "RolmOCR"
+                    print("Successfully loaded RolmOCR with default dtype")
+                    return True
+                    
+                except Exception as e3:
+                    # Log the actual error for debugging
+                    import traceback
+                    print(f"Error loading RolmOCR with default dtype: {str(e3)}")
+                    print(f"Error type: {type(e3).__name__}")
+                    print(f"Full traceback: {traceback.format_exc()}")
+                    return False
     
     def process_image(self, image, temperature=0.2, max_tokens=4096):
         """

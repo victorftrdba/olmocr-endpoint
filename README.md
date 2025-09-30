@@ -1,217 +1,113 @@
-# RolmOCR Endpoint
+# RolmOCR RunPod Serverless Endpoint
 
-[![Runpod](https://api.runpod.io/badge/victorftrdba/rolmocr-endpoint)](https://console.runpod.io/hub/victorftrdba/rolmocr-endpoint)
+Este projeto implementa um endpoint serverless no RunPod que utiliza o modelo RolmOCR da Reducto AI para extrair texto de imagens via URL.
 
-Um endpoint RunPod Serverless para OCR (Optical Character Recognition) usando o modelo RolmOCR-7B da Reducto AI, uma versão otimizada e mais rápida do olmOCR original.
+## Sobre o RolmOCR
 
-## 🚀 Funcionalidades
+O RolmOCR é uma versão otimizada do olmOCR original, oferecendo:
+- **Maior velocidade**: Processamento mais rápido que o modelo original
+- **Menor uso de memória**: Redução significativa no uso de VRAM
+- **Melhor precisão**: Mantém a qualidade de extração de texto
+- **Baseado no Qwen2.5-VL-7B**: Modelo mais recente e eficiente
 
-- **OCR de PDFs e Imagens**: Extrai texto de documentos PDF e imagens usando IA
-- **Modelo Otimizado**: Utiliza o modelo RolmOCR-7B (mais rápido e eficiente)
-- **Suporte a URLs**: Processa arquivos diretamente de URLs
-- **Múltiplas Páginas**: Processa PDFs com múltiplas páginas
-- **Formatos Suportados**: PDF, PNG, JPG, JPEG, GIF, BMP, TIFF
-- **API Serverless**: Interface via RunPod.io
-- **Processamento Inteligente**: Converte PDFs em imagens para análise otimizada
+## Funcionalidades
 
-## 📋 Pré-requisitos
+- ✅ Processamento de imagens via URL
+- ✅ Extração de texto usando RolmOCR
+- ✅ Suporte a múltiplos formatos de imagem (PNG, JPG, JPEG, GIF, BMP, TIFF)
+- ✅ Tratamento de erros robusto
+- ✅ Logging detalhado
+- ✅ Otimizado para RunPod Serverless
 
-- Python 3.11+
-- CUDA 12.2+ (recomendado para melhor performance)
-- RunPod.io account
-- Docker (para build local)
+## Como Usar
 
-## 🛠️ Deploy no RunPod.io
-
-### Opção 1: Deploy via GitHub (Recomendado)
-
-1. Faça push do código para o GitHub
-2. No RunPod.io, crie um novo "Serverless Endpoint"
-3. Conecte com seu repositório GitHub
-4. Configure as variáveis de ambiente (opcional):
-   - `MAX_TOKENS=4096`
-   - `TEMPERATURE=0.2`
-   - `MAX_PAGES=10`
-   - `MAX_FILE_SIZE_MB=50`
-
-### Opção 2: Deploy via Docker Hub
-
-1. Construa a imagem:
-```bash
-docker build -t seu-usuario/rolmocr-endpoint .
-```
-
-2. Faça push para Docker Hub:
-```bash
-docker push seu-usuario/rolmocr-endpoint
-```
-
-3. No RunPod.io, use a imagem: `seu-usuario/rolmocr-endpoint:latest`
-
-## 📖 Uso
-
-### API Endpoint
-
-**POST** `https://seu-endpoint.runpod.net/v2/LOCAL/runsync`
-
-### Opção 1: Processar arquivo via URL (Recomendado)
-
-**Exemplo de requisição:**
-```python
-import requests
-
-data = {
-    "input": {
-        "url": "https://example.com/document.pdf",
-        "max_pages": 10,
-        "temperature": 0.2,
-        "max_tokens": 4096
-    }
-}
-
-response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
-result = response.json()
-```
-
-### Opção 2: Processar arquivo via Base64
-
-**Exemplo de requisição:**
-```python
-import base64
-import requests
-
-# Converter arquivo para base64
-with open("document.pdf", "rb") as f:
-    file_data = base64.b64encode(f.read()).decode('utf-8')
-
-data = {
-    "input": {
-        "file": file_data,
-        "file_extension": "pdf"
-    }
-}
-
-response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
-result = response.json()
-```
-
-### Resposta da API
+### Input Esperado
 
 ```json
 {
-  "extracted_text": "Texto completo extraído do documento...",
-  "pages": [
-    {
-      "page": 1,
-      "text": "Texto da página 1..."
-    },
-    {
-      "page": 2,
-      "text": "Texto da página 2..."
+    "input": {
+        "image_url": "https://example.com/image.png"
     }
-  ],
-  "total_pages": 2,
-  "status": "success"
 }
 ```
 
-## 🔧 Configuração
+### Output Retornado
 
-O modelo utiliza as seguintes configurações:
-- **Modelo**: `reducto/RolmOCR-7b`
-- **Processor**: `Qwen/Qwen2.5-VL-7B-Instruct`
-- **Temperatura**: 0.2 (padrão)
-- **Max Tokens**: 4096 (padrão)
-- **Max Páginas**: 10 (padrão)
-- **Tamanho Máximo**: 50MB (padrão)
+```json
+{
+    "status": "success",
+    "extracted_text": "Texto extraído da imagem...",
+    "image_url": "https://example.com/image.png",
+    "image_size": [width, height],
+    "model": "reducto/RolmOCR"
+}
+```
 
-### Variáveis de Ambiente
+### Exemplo de Erro
 
-- `MAX_TOKENS`: Máximo de tokens na resposta (padrão: 4096)
-- `TEMPERATURE`: Criatividade da resposta 0.0-1.0 (padrão: 0.2)
-- `MAX_PAGES`: Máximo de páginas a processar (padrão: 10)
-- `MAX_FILE_SIZE_MB`: Tamanho máximo do arquivo em MB (padrão: 50)
+```json
+{
+    "error": "Descrição do erro",
+    "status": "error",
+    "image_url": "https://example.com/image.png"
+}
+```
 
-## 📦 Dependências
+## Teste Local
 
-- `torch`: Framework de deep learning
-- `transformers`: Biblioteca de modelos de transformadores
+Para testar localmente:
+
+1. Instale as dependências:
+```bash
+pip install -r requirements.txt
+```
+
+2. Execute o handler:
+```bash
+python handler.py
+```
+
+3. Ou teste com input específico:
+```bash
+python handler.py --test_input '{"input": {"image_url": "https://example.com/image.png"}}'
+```
+
+## Deploy no RunPod
+
+1. Construa a imagem Docker:
+```bash
+docker build -t rolmoocr-endpoint .
+```
+
+2. Faça push para um registry (Docker Hub, etc.)
+
+3. Crie um endpoint serverless no RunPod usando a imagem
+
+## Configuração
+
+O endpoint está configurado com os seguintes parâmetros padrão:
+- **Temperature**: 0.2 (para resultados mais determinísticos)
+- **Max Tokens**: 4096
+- **Timeout de Download**: 30 segundos
+- **Device**: CUDA (se disponível) ou CPU
+
+## Limitações
+
+- URLs devem apontar para imagens válidas
+- Tamanho máximo de resposta: 10MB (endpoint `/run`) ou 20MB (endpoint `/runsync`)
+- O modelo pode ocasionalmente ter alucinações ou perder conteúdo
+- Não retorna coordenadas de bounding boxes (apenas texto)
+
+## Dependências Principais
+
+- `runpod`: SDK do RunPod para serverless
+- `transformers`: Biblioteca Hugging Face para modelos
+- `torch`: PyTorch para inferência
 - `Pillow`: Processamento de imagens
-- `requests`: Requisições HTTP
-- `PyMuPDF`: Processamento de PDFs
-- `runpod`: SDK do RunPod.io
+- `requests`: Download de imagens
 
-## 🐳 Docker
+## Referências
 
-O projeto inclui um Dockerfile otimizado com:
-- Base CUDA 12.2 para suporte a GPU
-- Ubuntu 22.04 com Python 3.11
-- Dependências do sistema necessárias
-- Download dos modelos durante o build
-- Configuração automática do servidor
-
-## 📝 Notas
-
-- O modelo RolmOCR é mais rápido e eficiente que o olmOCR original
-- Suporte a GPU quando disponível (CUDA)
-- Fallback para CPU quando GPU não está disponível
-- Processamento de múltiplas páginas de PDF
-- Suporte a URLs para download automático de arquivos
-- Compatibilidade com formato base64 para arquivos locais
-
-## 🚀 Vantagens do RolmOCR
-
-- **Mais Rápido**: Até 2x mais rápido que olmOCR original
-- **Menos Memória**: Usa menos VRAM durante o processamento
-- **Melhor Qualidade**: Mantém a mesma qualidade de OCR
-- **Sem Metadata**: Não precisa de metadata de PDF (mais simples)
-- **Robustez**: Treinado com dados rotacionados para melhor precisão
-
-## 📊 Formatos Suportados
-
-### Documentos
-- **PDF**: Múltiplas páginas (até 10 por padrão)
-
-### Imagens
-- **PNG**: Imagens PNG
-- **JPG/JPEG**: Imagens JPEG
-- **GIF**: Imagens GIF
-- **BMP**: Imagens BMP
-- **TIFF**: Imagens TIFF
-
-## 🔍 Exemplos de Uso
-
-### Processar PDF via URL
-```python
-import requests
-
-data = {
-    "input": {
-        "url": "https://example.com/relatorio.pdf",
-        "max_pages": 5
-    }
-}
-
-response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
-print(response.json()["extracted_text"])
-```
-
-### Processar Imagem via URL
-```python
-data = {
-    "input": {
-        "url": "https://example.com/nota_fiscal.jpg"
-    }
-}
-
-response = requests.post("https://seu-endpoint.runpod.net/v2/LOCAL/runsync", json=data)
-print(response.json()["extracted_text"])
-```
-
-## 🤝 Contribuição
-
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull requests.
-
-## 📄 Licença
-
-Este projeto está sob a licença Apache 2.0.
+- [Documentação RunPod Handler Functions](https://docs.runpod.io/serverless/workers/handler-functions)
+- [Modelo RolmOCR no Hugging Face](https://huggingface.co/reducto/RolmOCR)
+- [olmOCR Original](https://huggingface.co/allenai/olmOCR-mix-0225)

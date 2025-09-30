@@ -1,13 +1,17 @@
-# Base: Python 3.11 + CUDA 12.2 (melhor abordagem)
+# Base: Python 3.11 + CUDA 12.2 for optimal GPU performance
 FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04
 
 WORKDIR /app
 
-# --- Configurar timezone para evitar prompts interativos ---
+# Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
+ENV PYTHONPATH=/app
+ENV CUDA_VISIBLE_DEVICES=0
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface/transformers
 
-# --- Instalar Python 3.11 e dependências do sistema ---
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
@@ -26,7 +30,6 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     libgcc-s1 \
-    poppler-utils \
     pkg-config \
     libjpeg-dev \
     zlib1g-dev \
@@ -37,32 +40,35 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Configurar Python 3.11 como padrão ---
+# Set Python 3.11 as default
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
-# --- Atualizar pip e instalar dependências básicas ---
+# Upgrade pip and install basic dependencies
 RUN pip install --upgrade pip setuptools wheel
 
-# --- Copiar requirements.txt primeiro para cache de dependências ---
+# Copy requirements first for better Docker layer caching
 COPY requirements.txt .
 
-# --- Instalar dependências Python ---
-RUN pip install --no-cache-dir -r requirements.txt
-
-# --- Instalar PyTorch compatível CUDA 12.2 ---
+# Install PyTorch with CUDA 12.2 support
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu122
 
-# --- Copiar todo o projeto ---
+# Install other Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create cache directory
+RUN mkdir -p /app/.cache/huggingface
+
+# Copy application code
 COPY . .
 
-# --- Configurar variáveis de ambiente ---
-ENV PYTHONPATH=/app
-ENV CUDA_VISIBLE_DEVICES=0
+# Create a non-root user for security
+RUN useradd -m -u 1000 runpod && chown -R runpod:runpod /app
+USER runpod
 
-# --- Porta padrão (opcional, RunPod Serverless não exige) ---
+# Expose port (optional for RunPod Serverless)
 EXPOSE 8080
 
-# --- Comando de inicialização RunPod Serverless ---
+# Start the RunPod serverless handler
 CMD ["python", "handler.py"]

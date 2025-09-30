@@ -30,7 +30,12 @@ class Config:
     # File Processing
     DOWNLOAD_TIMEOUT = 30
     CHUNK_SIZE = 8192
-    PDF_ZOOM_FACTOR = 2.0
+    PDF_ZOOM_FACTOR = 3.0  # Increased for better OCR quality
+    
+    # Image Processing Parameters (to fix token/feature mismatch)
+    MAX_IMAGE_SIZE = int(os.getenv("MAX_IMAGE_SIZE", "2048"))  # Max dimension for images
+    MIN_IMAGE_SIZE = int(os.getenv("MIN_IMAGE_SIZE", "64"))    # Min dimension for images
+    IMAGE_PADDING_MULTIPLE = 16  # Ensure dimensions are multiples of this
     
     # Supported File Formats
     SUPPORTED_DOCUMENT_FORMATS = ['.pdf']
@@ -75,7 +80,10 @@ class Config:
             'processing_timeout': cls.DEFAULT_PROCESSING_TIMEOUT,
             'download_timeout': cls.DOWNLOAD_TIMEOUT,
             'chunk_size': cls.CHUNK_SIZE,
-            'pdf_zoom_factor': cls.PDF_ZOOM_FACTOR
+            'pdf_zoom_factor': cls.PDF_ZOOM_FACTOR,
+            'max_image_size': cls.MAX_IMAGE_SIZE,
+            'min_image_size': cls.MIN_IMAGE_SIZE,
+            'image_padding_multiple': cls.IMAGE_PADDING_MULTIPLE
         }
     
     @classmethod

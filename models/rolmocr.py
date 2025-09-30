@@ -8,6 +8,7 @@ and processor, including memory optimization and error handling.
 import torch
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 from PIL import Image
+from config import Config
 
 
 class RolmOCRManager:
@@ -70,6 +71,10 @@ class RolmOCRManager:
                 "reducto/RolmOCR",
                 trust_remote_code=True
             )
+            
+            # Fix potential image token ID mismatch issues
+            self._fix_image_token_config()
+            
             self.model_name = "RolmOCR"
             return True
             
@@ -92,6 +97,10 @@ class RolmOCRManager:
                     "reducto/RolmOCR",
                     trust_remote_code=True
                 )
+                
+                # Fix potential image token ID mismatch issues
+                self._fix_image_token_config()
+                
                 self.model_name = "RolmOCR"
                 return True
                 
@@ -113,6 +122,10 @@ class RolmOCRManager:
                         "reducto/RolmOCR",
                         trust_remote_code=True
                     )
+                    
+                    # Fix potential image token ID mismatch issues
+                    self._fix_image_token_config()
+                    
                     self.model_name = "RolmOCR"
                     print("Successfully loaded RolmOCR with default dtype")
                     return True
@@ -125,6 +138,59 @@ class RolmOCRManager:
                     print(f"Full traceback: {traceback.format_exc()}")
                     return False
     
+    def _fix_image_token_config(self):
+        """
+        Fix potential image token ID mismatch issues in the model configuration.
+        
+        This addresses the common issue where the model's image_token_id doesn't
+        match the actual token ID used by the tokenizer.
+        """
+        try:
+            if hasattr(self.model, 'config') and hasattr(self.processor, 'tokenizer'):
+                print("Checking model configuration for potential fixes...")
+                
+                # Check max_prompt_length to ensure it's sufficient
+                if hasattr(self.model.config, 'max_prompt_length'):
+                    if self.model.config.max_prompt_length < 4096:
+                        print(f"Increasing max_prompt_length from {self.model.config.max_prompt_length} to 4096")
+                        self.model.config.max_prompt_length = 4096
+                
+                # Check if there's an image token ID mismatch
+                if hasattr(self.model.config, 'image_token_id'):
+                    print(f"Model config image_token_id: {self.model.config.image_token_id}")
+                    
+                    # Get the actual image token ID from the tokenizer
+                    image_token_id = None
+                    
+                    # Try different possible image token formats
+                    possible_tokens = ['<image>', '<IMG_CONTEXT>', '<img>', '<IMAGE>', '<|image_pad|>']
+                    for token in possible_tokens:
+                        try:
+                            token_id = self.processor.tokenizer.convert_tokens_to_ids(token)
+                            if token_id != self.processor.tokenizer.unk_token_id:
+                                image_token_id = token_id
+                                print(f"Found image token '{token}' with ID: {token_id}")
+                                break
+                        except Exception as token_error:
+                            print(f"Error checking token '{token}': {str(token_error)}")
+                            continue
+                    
+                    # Update model config if we found a mismatch
+                    if image_token_id is not None and image_token_id != self.model.config.image_token_id:
+                        print(f"Fixing image token ID mismatch: {self.model.config.image_token_id} -> {image_token_id}")
+                        self.model.config.image_token_id = image_token_id
+                    else:
+                        print("No image token ID mismatch found")
+                else:
+                    print("Model config does not have image_token_id attribute")
+                    
+                print("Model configuration check completed")
+                            
+        except Exception as e:
+            print(f"Warning: Could not fix image token config: {str(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
+    
     def _preprocess_image(self, image):
         """
         Preprocess image to ensure compatibility with RolmOCR model.
@@ -136,25 +202,40 @@ class RolmOCRManager:
             PIL.Image: Preprocessed image
         """
         try:
+            print(f"Original image: {image.size}, mode: {image.mode}")
+            
             # Convert to RGB if necessary (handles RGBA, L, P modes)
             if image.mode != 'RGB':
                 image = image.convert('RGB')
+                print(f"Converted to RGB: {image.size}, mode: {image.mode}")
             
-            # Ensure image is not too large (common cause of token/feature mismatch)
-            max_size = 1024  # Reasonable size for vision models
-            if max(image.size) > max_size:
-                # Calculate new size maintaining aspect ratio
-                ratio = max_size / max(image.size)
-                new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
-                image = image.resize(new_size, Image.Resampling.LANCZOS)
+            # For RolmOCR, use more conservative resizing to avoid token/feature mismatches
+            max_size = getattr(Config, 'MAX_IMAGE_SIZE', 2048)
+            min_size = getattr(Config, 'MIN_IMAGE_SIZE', 64)
             
-            # Ensure minimum size (very small images can cause issues)
-            min_size = 32
-            if min(image.size) < min_size:
-                # Calculate new size maintaining aspect ratio
-                ratio = min_size / min(image.size)
-                new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
-                image = image.resize(new_size, Image.Resampling.LANCZOS)
+            # Only resize if absolutely necessary
+            width, height = image.size
+            
+            # Check if image is too large
+            if max(width, height) > max_size:
+                ratio = max_size / max(width, height)
+                new_width = int(width * ratio)
+                new_height = int(height * ratio)
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                print(f"Resized large image to: {new_width}x{new_height}")
+            
+            # Check if image is too small
+            elif min(width, height) < min_size:
+                ratio = min_size / min(width, height)
+                new_width = int(width * ratio)
+                new_height = int(height * ratio)
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                print(f"Upscaled small image to: {new_width}x{new_height}")
+            
+            # Don't force dimensions to be multiples of 16 - this can cause issues
+            # Just ensure the image is reasonable size
+            final_width, final_height = image.size
+            print(f"Final image size: {final_width}x{final_height}")
             
             return image
             
@@ -196,62 +277,107 @@ class RolmOCRManager:
         image = self._preprocess_image(image)
         
         try:
-            # Prepare messages for OCR (using RolmOCR format)
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "image": image,
-                        },
-                        {
-                            "type": "text",
-                            "text": "Return the plain text representation of this document as if you were reading it naturally.\n",
-                        },
-                    ],
-                }
-            ]
+            # Use a much simpler approach for RolmOCR
+            # RolmOCR works better with direct text prompts rather than complex chat templates
+            prompt = "Extract all text from this image. Return only the plain text content without any formatting or explanations."
             
-            # Process input using the processor
-            text_input = self.processor.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            # Process inputs with multiple fallback strategies
+            inputs = None
+            last_error = None
             
-            # Process inputs with error handling for token/feature mismatch
+            # Strategy 1: Try with simple text and image
             try:
                 inputs = self.processor(
-                    text=[text_input],
-                    images=[image],
-                    padding=True,
+                    text=prompt,
+                    images=image,
                     return_tensors="pt"
                 )
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            except Exception as proc_error:
-                # If processor fails, try with different settings
-                print(f"Processor error: {str(proc_error)}")
-                print(f"Image size: {image.size}, mode: {image.mode}")
+                print(f"Successfully processed with simple prompt")
                 
-                # Try with different processor settings
+            except Exception as e1:
+                last_error = e1
+                print(f"Simple processing failed: {str(e1)}")
+                
+                # Strategy 2: Try with chat template
                 try:
+                    messages = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image", "image": image},
+                                {"type": "text", "text": prompt}
+                            ]
+                        }
+                    ]
+                    
+                    text_input = self.processor.apply_chat_template(
+                        messages, tokenize=False, add_generation_prompt=True
+                    )
+                    
                     inputs = self.processor(
-                        text=[text_input],
-                        images=[image],
-                        padding=False,  # Try without padding
+                        text=text_input,
+                        images=image,
                         return_tensors="pt"
                     )
                     inputs = {k: v.to(self.device) for k, v in inputs.items()}
-                except Exception as proc_error2:
-                    raise Exception(f"Failed to process image with processor: {str(proc_error2)}")
+                    print(f"Successfully processed with chat template")
+                    
+                except Exception as e2:
+                    last_error = e2
+                    print(f"Chat template processing failed: {str(e2)}")
+                    
+                    # Strategy 3: Try with minimal settings
+                    try:
+                        inputs = self.processor(
+                            text="What text do you see in this image?",
+                            images=image,
+                            return_tensors="pt"
+                        )
+                        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                        print(f"Successfully processed with minimal prompt")
+                        
+                    except Exception as e3:
+                        last_error = e3
+                        print(f"Minimal processing failed: {str(e3)}")
+                        
+                        # Strategy 4: Try without any text
+                        try:
+                            inputs = self.processor(
+                                images=image,
+                                return_tensors="pt"
+                            )
+                            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                            print(f"Successfully processed with image only")
+                            
+                        except Exception as e4:
+                            raise Exception(f"All processing strategies failed. Last error: {str(e4)}")
             
-            # Generate output
-            output = self.model.generate(
-                **inputs,
-                temperature=temperature,
-                max_new_tokens=max_tokens,
-                num_return_sequences=1,
-                do_sample=True,
-            )
+            if inputs is None:
+                raise Exception(f"Failed to process image: {str(last_error)}")
+            
+            # Generate output with conservative settings to avoid token/feature mismatch
+            try:
+                output = self.model.generate(
+                    **inputs,
+                    temperature=temperature,
+                    max_new_tokens=min(max_tokens, 2048),  # Limit max tokens to avoid issues
+                    num_return_sequences=1,
+                    do_sample=True,
+                    pad_token_id=self.processor.tokenizer.eos_token_id,
+                    eos_token_id=self.processor.tokenizer.eos_token_id,
+                )
+            except Exception as gen_error:
+                print(f"Generation error: {str(gen_error)}")
+                # Try with even more conservative settings
+                output = self.model.generate(
+                    **inputs,
+                    temperature=0.1,  # Lower temperature
+                    max_new_tokens=1024,  # Even lower max tokens
+                    num_return_sequences=1,
+                    do_sample=False,  # Greedy decoding
+                    pad_token_id=self.processor.tokenizer.eos_token_id,
+                )
             
             # Decode output
             prompt_len = inputs["input_ids"].shape[1]

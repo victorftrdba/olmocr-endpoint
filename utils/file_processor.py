@@ -11,6 +11,7 @@ from io import BytesIO
 from PIL import Image
 import fitz  # PyMuPDF
 from urllib.parse import urlparse
+from config import Config
 
 
 class FileProcessor:
@@ -139,16 +140,25 @@ class FileProcessor:
                 try:
                     page = pdf_document[page_num]
                     
-                    # Render page to image with 2x zoom for better quality
-                    mat = fitz.Matrix(2.0, 2.0)
-                    pix = page.get_pixmap(matrix=mat)
+                    # Render page to image with higher quality for better OCR
+                    # Use configured zoom factor for better text recognition
+                    zoom_factor = getattr(Config, 'PDF_ZOOM_FACTOR', 3.0)
+                    mat = fitz.Matrix(zoom_factor, zoom_factor)
+                    pix = page.get_pixmap(matrix=mat, alpha=False)  # Disable alpha for RGB
                     img_data = pix.tobytes("png")
                     
-                    # Convert to PIL Image
+                    # Convert to PIL Image and ensure RGB mode
                     image = Image.open(BytesIO(img_data))
+                    if image.mode != 'RGB':
+                        image = image.convert('RGB')
+                    
+                    # Log image info for debugging
+                    print(f"PDF page {page_num + 1}: {image.size}, mode: {image.mode}")
+                    
                     images.append(image)
                     
                 except Exception as page_error:
+                    print(f"Error processing PDF page {page_num + 1}: {str(page_error)}")
                     # Continue with other pages if one fails
                     continue
             

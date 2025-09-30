@@ -153,6 +153,9 @@ class OCRService:
         extracted_texts = []
         for i, image in enumerate(images):
             try:
+                # Log image information for debugging
+                print(f"Processing PDF page {i+1}: size={image.size}, mode={image.mode}")
+                
                 # Apply timeout to image processing
                 text = self._process_image_with_timeout(
                     image, 
@@ -165,9 +168,13 @@ class OCRService:
                 })
                 
             except Exception as e:
+                error_msg = str(e)
+                if "Image features and image tokens do not match" in error_msg:
+                    error_msg = f"Page processing failed due to token/feature mismatch. This usually indicates an image format or size issue. Original error: {error_msg}"
+                
                 extracted_texts.append({
                     "page": i + 1,
-                    "text": f"Error processing page: {str(e)}"
+                    "text": f"Error processing page: {error_msg}"
                 })
         
         return extracted_texts
@@ -185,6 +192,10 @@ class OCRService:
         """
         try:
             image = Image.open(BytesIO(image_data))
+            
+            # Log image information for debugging
+            print(f"Processing image: size={image.size}, mode={image.mode}, format={image.format}")
+            
             text = self._process_image_with_timeout(
                 image, 
                 config['temperature'], 
@@ -197,7 +208,11 @@ class OCRService:
             }]
             
         except Exception as e:
-            raise Exception(f"Failed to process image: {str(e)}")
+            error_msg = str(e)
+            if "Image features and image tokens do not match" in error_msg:
+                # Provide more specific error message for this common issue
+                error_msg = f"Image processing failed due to token/feature mismatch. This usually indicates an image format or size issue. Original error: {error_msg}"
+            raise Exception(f"Failed to process image: {error_msg}")
     
     def _process_image_with_timeout(self, image, temperature, max_tokens):
         """

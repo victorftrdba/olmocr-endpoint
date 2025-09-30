@@ -7,6 +7,7 @@ and processor, including memory optimization and error handling.
 
 import torch
 from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from PIL import Image
 
 
 class RolmOCRManager:
@@ -124,6 +125,44 @@ class RolmOCRManager:
                     print(f"Full traceback: {traceback.format_exc()}")
                     return False
     
+    def _preprocess_image(self, image):
+        """
+        Preprocess image to ensure compatibility with RolmOCR model.
+        
+        Args:
+            image (PIL.Image): Input image
+            
+        Returns:
+            PIL.Image: Preprocessed image
+        """
+        try:
+            # Convert to RGB if necessary (handles RGBA, L, P modes)
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Ensure image is not too large (common cause of token/feature mismatch)
+            max_size = 1024  # Reasonable size for vision models
+            if max(image.size) > max_size:
+                # Calculate new size maintaining aspect ratio
+                ratio = max_size / max(image.size)
+                new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Ensure minimum size (very small images can cause issues)
+            min_size = 32
+            if min(image.size) < min_size:
+                # Calculate new size maintaining aspect ratio
+                ratio = min_size / min(image.size)
+                new_size = (int(image.size[0] * ratio), int(image.size[1] * ratio))
+                image = image.resize(new_size, Image.Resampling.LANCZOS)
+            
+            return image
+            
+        except Exception as e:
+            # If preprocessing fails, return original image
+            print(f"Warning: Image preprocessing failed: {str(e)}")
+            return image
+    
     def process_image(self, image, temperature=0.2, max_tokens=4096):
         """
         Process an image with the loaded OCR model.
@@ -153,6 +192,9 @@ class RolmOCRManager:
         if image is None:
             raise ValueError("Image cannot be None")
         
+        # Preprocess image to ensure compatibility
+        image = self._preprocess_image(image)
+        
         try:
             # Prepare messages for OCR (using RolmOCR format)
             messages = [
@@ -176,13 +218,31 @@ class RolmOCRManager:
                 messages, tokenize=False, add_generation_prompt=True
             )
             
-            inputs = self.processor(
-                text=[text_input],
-                images=[image],
-                padding=True,
-                return_tensors="pt"
-            )
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            # Process inputs with error handling for token/feature mismatch
+            try:
+                inputs = self.processor(
+                    text=[text_input],
+                    images=[image],
+                    padding=True,
+                    return_tensors="pt"
+                )
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            except Exception as proc_error:
+                # If processor fails, try with different settings
+                print(f"Processor error: {str(proc_error)}")
+                print(f"Image size: {image.size}, mode: {image.mode}")
+                
+                # Try with different processor settings
+                try:
+                    inputs = self.processor(
+                        text=[text_input],
+                        images=[image],
+                        padding=False,  # Try without padding
+                        return_tensors="pt"
+                    )
+                    inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                except Exception as proc_error2:
+                    raise Exception(f"Failed to process image with processor: {str(proc_error2)}")
             
             # Generate output
             output = self.model.generate(

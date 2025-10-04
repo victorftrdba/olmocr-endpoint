@@ -1,23 +1,10 @@
-# RunPod Serverless
-runpod>=1.0.0
+# RunPod SDK
+runpod==1.4.0
 
-# Core ML dependencies
-torch>=2.0.0
-torchvision>=0.15.0
-transformers>=4.40.0
-accelerate>=0.20.0
-
-# RolmOCR specific dependencies
-tokenizers>=0.15.0
-huggingface-hub>=0.20.0
-sentencepiece>=0.1.99
-protobuf>=3.20.0
-
-# Image processing
-Pillow>=10.0.0
-
-# HTTP requests
-requests>=2.31.0
-
-# Additional utilities
-numpy>=1.24.0
+# Transformers e dependências de IA
+transformers==4.44.0
+torch==2.3.0+cu121 --index-url https://download.pytorch.org/whl/cu121
+accelerate
+safetensors
+Pillow
+requests
